@@ -1,0 +1,11 @@
+# Extra packages for training and inference.
+# The reviewer demo in requirements.txt stays numpy-only and does not need these.
+# Versions are the ones used to develop these scripts.
+torch==2.2.1
+torchvision==0.17.1
+numpy==1.26.4
+pandas==2.3.1
+pillow==11.3.0
+tqdm==4.67.1
+ema-pytorch==0.7.7
+scikit-learn==1.7.2
