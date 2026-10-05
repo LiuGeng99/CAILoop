@@ -23,6 +23,7 @@ from ema_pytorch import EMA
 from utils.data_manager import DataManager
 
 # DINOv2 路径配置
+from cailoop.rotation import aggregate_rotation_logits, expand_classifier_state, rotate_batch
 from cailoop.runtime import dinov2_backbone
 
 def _set_random(seed=0):
@@ -43,7 +44,7 @@ def setup_ddp():
 def cleanup_ddp():
     dist.destroy_process_group()
 
-def evaluate_model(model, classifier, loader, device):
+def evaluate_model(model, classifier, loader, device, num_orig_classes):
     model.eval()
     classifier.eval()
     correct, total = 0, 0
@@ -54,6 +55,7 @@ def evaluate_model(model, classifier, loader, device):
             with torch.cuda.amp.autocast(dtype=torch.bfloat16):
                 features = model(inputs)
                 outputs = classifier(features)
+            outputs = aggregate_rotation_logits(outputs, num_orig_classes)
             
             predicted = outputs.argmax(1)
             total += targets.size(0)
@@ -111,10 +113,13 @@ def train(args):
     # 2. 模型初始化
     dino_model = dinov2_backbone()(pretrained=False)
     dino_model.load_state_dict(torch.load(args.backbone_ckpt, map_location='cpu'))
-    classifier = nn.Linear(768, args.num_classes)
+    # Four rotations x the original classes. Saved cls_best.pth has this width.
+    classifier = nn.Linear(768, args.num_classes * 4)
     
     if args.cls_ckpt and os.path.exists(args.cls_ckpt):
-        classifier.load_state_dict(torch.load(args.cls_ckpt, map_location='cpu'))
+        state = torch.load(args.cls_ckpt, map_location='cpu')
+        state = expand_classifier_state(state, args.num_classes)
+        classifier.load_state_dict(state)
 
     dino_model.to(device)
     classifier.to(device)
@@ -146,6 +151,7 @@ def train(args):
             
             for step, (_, inputs, targets, _) in enumerate(train_loader):
                 inputs, targets = inputs.to(device), targets.to(device)
+                inputs, targets = rotate_batch(inputs, targets, args.num_classes)
                 
                 with torch.cuda.amp.autocast(dtype=torch.bfloat16):
                     with torch.no_grad():
@@ -179,6 +185,7 @@ def train(args):
         
         for step, (_, inputs, targets, _) in enumerate(train_loader):
             inputs, targets = inputs.to(device), targets.to(device)
+            inputs, targets = rotate_batch(inputs, targets, args.num_classes)
             
             with torch.cuda.amp.autocast(dtype=torch.bfloat16):
                 features = dino_model(inputs)
@@ -200,7 +207,9 @@ def train(args):
         # 验证
         if (epoch + 1) % args.eval_freq == 0 or epoch == args.ft_epochs - 1:
             # 验证时使用 EMA 模型
-            cur_acc = evaluate_model(ema_dino.ema_model, ema_cls.ema_model, test_loader, device)
+            cur_acc = evaluate_model(
+                ema_dino.ema_model, ema_cls.ema_model, test_loader, device, args.num_classes
+            )
             if local_rank == 0:
                 logging.info(f"Epoch {epoch+1} | Test Acc (EMA): {cur_acc:.4f}")
                 if cur_acc > best_acc:
@@ -225,8 +234,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_classes', type=int, default=30)
     parser.add_argument('--seed', type=int, default=0)
     
-    parser.add_argument('--batch_size', type=int, default=128, 
-                        help='Batch size per GPU') 
+    parser.add_argument('--batch_size', type=int, default=32, 
+                        help='Images per GPU before the four rotations. The loss sees four times this many.') 
     
     parser.add_argument('--num_workers', type=int, default=4)
     

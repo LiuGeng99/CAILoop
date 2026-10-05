@@ -12,7 +12,6 @@ if str(_ROOT) not in sys.path:
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -20,6 +19,7 @@ from tqdm import tqdm
 from utils.data_manager import DataManager
 
 # Configure DINOv2 path
+from cailoop.rotation import aggregate_rotation_logits, build_classifier
 from cailoop.runtime import dinov2_backbone
 
 # Filename: 000_Epi_Ca_case_0000_image_0000.png
@@ -76,12 +76,12 @@ def do_inference(args):
     # 2. Build Models
     print("=> Building model...")
     dino_model = dinov2_backbone()(pretrained=False)
-    classifier = nn.Linear(768, args.num_classes)
 
     # 3. Load Checkpoints
     print(f"=> Loading weights from {args.ckpt_path}...")
     dino_model.load_state_dict(torch.load(os.path.join(args.ckpt_path, "dino_best.pth"), map_location="cpu"))
-    classifier.load_state_dict(torch.load(os.path.join(args.ckpt_path, "cls_best.pth"), map_location="cpu"))
+    cls_state = torch.load(os.path.join(args.ckpt_path, "cls_best.pth"), map_location="cpu")
+    classifier = build_classifier(cls_state, args.num_classes)
 
     dino_model.to(device)
     classifier.to(device)
@@ -104,6 +104,7 @@ def do_inference(args):
             with torch.cuda.amp.autocast(dtype=torch.bfloat16):
                 features = dino_model(inputs)
                 logits = classifier(features)
+            logits = aggregate_rotation_logits(logits, args.num_classes)
 
             probs = F.softmax(logits, dim=1)
             preds = torch.argmax(probs, dim=1)

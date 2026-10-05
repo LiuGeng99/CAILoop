@@ -25,13 +25,13 @@ if str(_ROOT) not in sys.path:
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from tqdm import tqdm
 
+from cailoop.rotation import aggregate_rotation_logits, build_classifier
 from cailoop.runtime import dinov2_backbone
 
 
@@ -101,15 +101,13 @@ def do_inference(args):
 
     print("=> Building model...")
     dino_model = dinov2_backbone()(pretrained=False)
-    classifier = nn.Linear(768, args.num_classes)
 
     print(f"=> Loading weights from {args.ckpt_path}...")
     dino_model.load_state_dict(
         torch.load(os.path.join(args.ckpt_path, "dino_best.pth"), map_location="cpu")
     )
-    classifier.load_state_dict(
-        torch.load(os.path.join(args.ckpt_path, "cls_best.pth"), map_location="cpu")
-    )
+    cls_state = torch.load(os.path.join(args.ckpt_path, "cls_best.pth"), map_location="cpu")
+    classifier = build_classifier(cls_state, args.num_classes)
 
     dino_model.to(device)
     classifier.to(device)
@@ -128,6 +126,7 @@ def do_inference(args):
             with torch.cuda.amp.autocast(dtype=torch.bfloat16):
                 features = dino_model(images)
                 logits = classifier(features)
+            logits = aggregate_rotation_logits(logits, args.num_classes)
             probs = F.softmax(logits, dim=1)
             preds = torch.argmax(probs, dim=1)
 

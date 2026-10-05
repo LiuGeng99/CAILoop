@@ -2,7 +2,7 @@
 
 Case-level decisions for the laryngoscopy model in *Clinicians Close the Loop Between Diagnosis and Learning in Laryngoscopic AI*.
 
-This repository contains the published case-level decision rules, plus the training and inference source. It does not contain clinical images or trained weights. The reviewer demo below runs on a CPU from a synthetic JSON file. Training and inference need a separate environment, a local DINOv2 checkout, and data you supply.
+This repository contains the published case-level decision rules, the training and inference source, and the 30-class checkpoint used for the reported results. It does not contain clinical images. The reviewer demo below runs on a CPU from a synthetic JSON file and does not load the checkpoint. Training and folder inference need a separate environment, a local DINOv2 checkout, and data you supply.
 
 The rules are:
 
@@ -104,19 +104,26 @@ multi/weihai
 external_v2/<center>/
 ```
 
-`scripts/train_diag.py` is the diagnostic fine-tune. Its defaults follow the Methods: 30 classes, AdamW, weight decay 1e-4, EMA beta 0.9999, learning rate 1e-5, batch size 128 per process, the backbone frozen for 5 epochs and then fine-tuned for 95 epochs. The backbone is loaded from a DINOv2 ViT-B/14 register checkpoint that you pass in. Weights are written under `checkpoints/diag`.
+`scripts/train_diag.py` is the diagnostic fine-tune. Each training image is shown at 0°, 90°, 180° and 270°. The classifier has 120 outputs, four copies of the 30 classes, and the label is shifted by 30 for each extra rotation. At evaluation the four logit blocks of the upright image are averaged back to 30 classes, then a softmax is taken. Inference does the same average, so `prob_0` … `prob_29` stay 30 class probabilities. A saved head that is already 30 wide is left unchanged.
+
+The other defaults follow the Methods: AdamW, weight decay 1e-4, EMA beta 0.9999, learning rate 1e-5, the backbone frozen for 5 epochs and then fine-tuned for 95 epochs. `--batch_size` is the number of images per GPU before rotation and defaults to 32, so the loss sees 128 images. The backbone is loaded from a DINOv2 ViT-B/14 register checkpoint that you pass in. Weights are written under `checkpoints/diag`. `cls_best.pth` is the 120-way head.
 
 ```bash
 torchrun --nproc_per_node=4 scripts/train_diag.py \
   --backbone_ckpt /path/to/dinov2_vitb14_reg4_pretrain.pth
 ```
 
-Folder-split inference and case-folder inference:
+The checkpoint used for the reported 30-class results is in `checkpoints/cailoop/`:
+
+- `dino_best.pth` is the fine-tuned DINOv2 ViT-B/14 backbone (about 331 MB).
+- `cls_best.pth` is a 30-way linear head.
+
+`scripts/infer_split.py` and `scripts/infer_cases.py` accept this 30-way head and return `prob_0` … `prob_29`. A later training run of `scripts/train_diag.py` saves a 120-way head instead; pass that directory the same way.
 
 ```bash
-python scripts/infer_split.py --ckpt_path checkpoints/diag
+python scripts/infer_split.py --ckpt_path checkpoints/cailoop
 python scripts/infer_cases.py \
-  --ckpt_path checkpoints/diag \
+  --ckpt_path checkpoints/cailoop \
   --cases_root /path/to/cases
 ```
 
@@ -126,7 +133,7 @@ On a machine that already has the CUDA build of PyTorch, the extra install is a 
 
 ## Reproducing the manuscript
 
-Reproducing the published cohort metrics requires the clinical images and the trained DINOv2 weights. Those files are not in this repository. The decision rules above are the ones used for the reported case-level binary and fine-grained results.
+The 30-class checkpoint is included. Reproducing the published cohort metrics still requires the clinical images, which are not in this repository. The decision rules above are the ones used for the reported case-level binary and fine-grained results.
 
 ## License
 
