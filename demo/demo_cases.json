@@ -1,0 +1,27 @@
+{
+  "description": "Synthetic class probabilities for the CAILoop demo. These are not clinical images.",
+  "cases": [
+    {
+      "case_id": "internal_demo",
+      "cohort": "internal",
+      "aggregation": "mean",
+      "images": [
+        {"image_id": "img_0", "probabilities": [0.10, 0, 0, 0, 0, 0, 0, 0.90, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+        {"image_id": "img_1", "probabilities": [0.20, 0, 0, 0, 0, 0, 0, 0.80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+        {"image_id": "img_2", "probabilities": [0.80, 0, 0, 0, 0, 0, 0, 0.20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+        {"image_id": "img_3", "probabilities": [0.91, 0, 0, 0, 0, 0, 0, 0.09, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+      ]
+    },
+    {
+      "case_id": "prospective_demo",
+      "cohort": "prospective",
+      "aggregation": "top3_mean",
+      "images": [
+        {"image_id": "img_0", "probabilities": [0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.95, 0, 0, 0, 0, 0]},
+        {"image_id": "img_1", "probabilities": [0.40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.60, 0, 0, 0, 0, 0]},
+        {"image_id": "img_2", "probabilities": [0.70, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.30, 0, 0, 0, 0, 0]},
+        {"image_id": "img_3", "probabilities": [0.10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.90, 0, 0, 0, 0, 0]}
+      ]
+    }
+  ]
+}
